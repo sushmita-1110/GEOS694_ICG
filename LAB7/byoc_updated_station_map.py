@@ -20,7 +20,7 @@ Output
 How to run
 ----------
 1. Install the required packages:
-   pip install pandas 
+   pip install pandas
    conda install -c conda-forge pygmt
 
 2. Place the input file `gmap-stations-AK.txt` in the same directory
@@ -36,128 +36,110 @@ import pandas as pd
 import pygmt
 
 
-INPUT_FILE = Path("gmap-stations-AK.txt")
-OUTPUT_FILE = Path("AK_station_alaska_map.png")
-
-REGION = [-170, -135, 51, 70]
-PROJECTION = "L-150/62/55/65/12c"
-RELIEF_GRID = "@earth_relief_03m"
-MAP_TITLE = "Alaska Stations"
-
-
-def load_station_data(file_path: Path) -> pd.DataFrame:
+# Wrapped settings into a class
+class AlaskaStationMap:
     """
-    Load station data from a pipe-delimited text file.
-
-    Parameters
-    ----------
-    file_path : Path
-        Path to the station data file.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame containing station names, latitudes, and longitudes.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the input file does not exist.
-    ValueError
-        If required columns are missing.
+    Create a topographic map of Alaska seismic stations.
     """
-    if not file_path.exists():
-        raise FileNotFoundError(f"Input file not found: {file_path}")
 
-    station_df = pd.read_csv(file_path, sep="|")
+    def __init__(self, input_file: str, output_file: str):
+        self.input_file = Path(input_file)
+        self.output_file = Path(output_file)
+        self.region = [-170, -135, 51, 70]
+        self.projection = "L-150/62/55/65/12c"
+        self.relief_grid = "@earth_relief_03m"
+        self.map_title = "Alaska Stations"
 
-    required_columns = {"Station", "Latitude", "Longitude"}
-    missing_columns = required_columns - set(station_df.columns)
-    if missing_columns:
-        raise ValueError(
-            f"Missing required columns: {', '.join(sorted(missing_columns))}"
+    def load_station_data(self) -> pd.DataFrame:
+        """
+        Load station data from a pipe-delimited text file.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing station names, latitudes, and longitudes.
+        """
+        if not self.input_file.exists():
+            raise FileNotFoundError(f"Input file not found: {self.input_file}")
+
+        station_df = pd.read_csv(self.input_file, sep="|")
+
+        required_columns = {"Station", "Latitude", "Longitude"}
+        missing_columns = required_columns - set(station_df.columns)
+        if missing_columns:
+            raise ValueError(
+                f"Missing required columns: {', '.join(sorted(missing_columns))}"
+            )
+
+        return station_df
+
+    def create_station_map(self, station_df: pd.DataFrame) -> pygmt.Figure:
+        """
+        Create a PyGMT figure showing Alaska station locations.
+        """
+        figure = pygmt.Figure()
+
+        figure.grdimage(
+            grid=self.relief_grid,
+            region=self.region,
+            projection=self.projection,
+            shading=True,
+            cmap="geo",
         )
 
-    return station_df
+        figure.coast(
+            region=self.region,
+            projection=self.projection,
+            shorelines="0.6p,black",
+            borders=["1/0.5p,black", "2/0.25p,gray40"],
+            rivers="a/0.25p,blue",
+            lakes="lightblue",
+            resolution="i",
+        )
 
+        figure.plot(
+            x=station_df["Longitude"],
+            y=station_df["Latitude"],
+            style="i0.14c",
+            fill="red",
+            pen="0.25p,black",
+        )
 
-def create_station_map(station_df: pd.DataFrame) -> pygmt.Figure:
-    """
-    Create a PyGMT figure showing Alaska station locations.
+        figure.text(
+            x=station_df["Longitude"],
+            y=station_df["Latitude"],
+            text=station_df["Station"],
+            font="1.5p,Helvetica-Bold,black",
+            justify="LT",
+            offset="0.05c/0.05c",
+            fill="white",
+        )
 
-    Parameters
-    ----------
-    station_df : pd.DataFrame
-        DataFrame containing station data with Station, Latitude,
-        and Longitude columns.
+        figure.basemap(frame=["af", f"+t{self.map_title}"])
 
-    Returns
-    -------
-    pygmt.Figure
-        
-    """
-    figure = pygmt.Figure()
+        return figure
 
-    figure.grdimage(
-        grid=RELIEF_GRID,
-        region=REGION,
-        projection=PROJECTION,
-        shading=True,
-        cmap="geo",
-    )
+    def save_and_show_map(self, figure: pygmt.Figure) -> None:
+        """
+        Save the map to disk and display it.
+        """
+        figure.savefig(self.output_file, dpi=600)
+        figure.show()
 
-    figure.coast(
-        region=REGION,
-        projection=PROJECTION,
-        shorelines="0.6p,black",
-        borders=["1/0.5p,black", "2/0.25p,gray40"],
-        rivers="a/0.25p,blue",
-        lakes="lightblue",
-        resolution="i",
-    )
-
-    figure.plot(
-        x=station_df["Longitude"],
-        y=station_df["Latitude"],
-        style="i0.14c",
-        fill="red",
-        pen="0.25p,black",
-    )
-
-    figure.text(
-        x=station_df["Longitude"],
-        y=station_df["Latitude"],
-        text=station_df["Station"],
-        font="1.5p,Helvetica-Bold,black",
-        justify="LT",
-        offset="0.05c/0.05c",
-        fill="white",
-    )
-
-    figure.basemap(frame=["af", f"+t{MAP_TITLE}"])
-
-    return figure
-
-
-def save_and_show_map(figure: pygmt.Figure, output_file: Path) -> None:
-    """
-    Save the map to disk and display it.
-
-    Parameters
-    ----------
-    figure : pygmt.Figure
-        The PyGMT figure to save and display.
-    output_file : Path
-        Path where the output image will be written.
-    """
-    figure.savefig(output_file, dpi=600)
-    figure.show()
+    # Added one workflow method
+    def run(self) -> None:
+        station_df = self.load_station_data()
+        figure = self.create_station_map(station_df)
+        self.save_and_show_map(figure)
 
 
 def main():
-    station_df = load_station_data(INPUT_FILE)
-    figure = create_station_map(station_df)
-    save_and_show_map(figure, OUTPUT_FILE)
+    # Create class object and run it
+    station_map = AlaskaStationMap(
+        input_file="gmap-stations-AK.txt",
+        output_file="AK_station_alaska_map.png",
+    )
+    station_map.run()
 
 
 if __name__ == "__main__":
