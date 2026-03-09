@@ -134,10 +134,25 @@ class AlaskaStationMap:
 
 
 def main():
-    # Create class object and run it
+    # Parameter input system using input()
+    default_input_file = "gmap-stations-AK.txt"
+    default_output_file = "AK_station_alaska_map.png"
+
+    input_file = input(
+        f"Enter input station file [{default_input_file}]: "
+    ).strip()
+    if input_file == "":
+        input_file = default_input_file
+
+    output_file = input(
+        f"Enter output image file [{default_output_file}]: "
+    ).strip()
+    if output_file == "":
+        output_file = default_output_file
+
     station_map = AlaskaStationMap(
-        input_file="gmap-stations-AK.txt",
-        output_file="AK_station_alaska_map.png",
+        input_file=input_file,
+        output_file=output_file,
     )
     station_map.run()
 
